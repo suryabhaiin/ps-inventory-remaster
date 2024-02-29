@@ -21,7 +21,7 @@ app.use(Quasar, { config: {} })
 app.mount('#inventory-menus')
 
 function showBlur() {
-    $.post('https://ps-inventory/showBlur');
+    $.post('https://qb-inventory/showBlur');
 }
 
 var InventoryOption = "0, 0, 0";
@@ -43,6 +43,7 @@ var disableRightMouse = false;
 var selectedItem = null;
 
 var IsDragging = false;
+var flagvalue = 0;
 
 $(document).on("keydown", function() {
     if (event.repeat) {
@@ -52,9 +53,9 @@ $(document).on("keydown", function() {
         case 27: // ESC
             Inventory.Close();
             break;
-        case 9: // TAB
-            Inventory.Close();
-            break;
+        // case 9: // TAB
+        //     Inventory.Close();
+        //     break;
         case 17: // TAB
             ControlPressed = true;
             break;
@@ -67,7 +68,7 @@ $(document).on("dblclick", ".item-slot", function(e) {
     if (ItemData) {
         Inventory.Close();
         $.post(
-            "https://ps-inventory/UseItem",
+            "https://qb-inventory/UseItem",
             JSON.stringify({
                 inventory: ItemInventory,
                 item: ItemData,
@@ -115,17 +116,18 @@ function GetFirstFreeSlot($toInv, $fromSlot) {
 }
 
 function CanQuickMove() {
-    var otherinventory = otherLabel.toLowerCase();
-    var retval = true;
-    // if (otherinventory == "grond") {
-    //     retval = false
-    // } else if (otherinventory.split("-")[0] == "dropped") {
+    return false;
+    // var otherinventory = otherLabel.toLowerCase();
+    // var retval = true;
+    // // if (otherinventory == "grond") {
+    // //     retval = false
+    // // } else if (otherinventory.split("-")[0] == "dropped") {
+    // //     retval = false;
+    // // }
+    // if (otherinventory.split("-")[0] == "player") {
     //     retval = false;
     // }
-    if (otherinventory.split("-")[0] == "player") {
-        retval = false;
-    }
-    return retval;
+    // return retval;
 }
 
 $(document).on("mousedown", ".item-slot", function(event) {
@@ -175,6 +177,152 @@ $(document).on("mousedown", ".item-slot", function(event) {
     }
 });
 
+function hideMenu()
+{
+    $('.menu').hide(); 
+    $('.menu').empty();
+}
+
+function giveItem(id)
+{
+    var el = $('.player-inventory div[data-slot=' + id + ']');
+    var fromData = el.data("item");
+    var fromInventory = el.parent().attr("data-inventory");
+    var amount = parseInt($("#item-amount").val());	
+    $("#item-amount").val(amount);
+    if (amount == 0) {
+        amount = fromData.amount;
+    }
+    // console.log(amount);
+    $.post(
+        "https://qb-inventory/GiveItem",
+        JSON.stringify({
+            inventory: fromInventory,
+            item: fromData,
+            amount: parseInt(amount),
+        })
+    );
+}
+
+function useItem(id)
+{
+    var el = $('.player-inventory div[data-slot=' + id + ']');
+    var ItemData = el.data("item");
+    var ItemInventory = el.parent().attr("data-inventory");
+    if (ItemData) {
+        Inventory.Close();
+        $.post(
+            "https://qb-inventory/UseItem",
+            JSON.stringify({
+                inventory: ItemInventory,
+                item: ItemData,
+            })
+        );
+    }
+}
+
+function showAttachment()
+{
+    if (!Inventory.IsWeaponBlocked(ClickedItemData.name)) {
+        $(".weapon-attachments-container").css({ display: "block" });
+        $("#qbcore-inventory").animate({
+                left: 100 + "vw",
+            },
+            200,
+            function() {
+                $("#qbcore-inventory").css({ display: "none" });
+                FormatAttachmentInfo(ClickedItemData);
+            }
+            
+        );
+        $(".weapon-attachments-container").animate({
+                left: 0 + "vw",
+            },
+            200
+        );
+        AttachmentScreenActive = true;
+        FormatAttachmentInfo(ClickedItemData);
+    } else {
+        $.post(
+            "https://qb-inventory/Notify",
+            JSON.stringify({
+                message: "Attachments are unavailable for this gun.",
+                type: "error",
+            })
+        );
+    }
+}
+
+$(document).ready(function() {
+
+    $(document).on("mousedown", ".item-slot", function(event) {
+        if(event.which != 3)
+        {
+            hideMenu();
+        }
+    });
+    
+    $(".menu").mouseleave(function(){
+        hideMenu();
+    });
+    $(".combine-option-container").mouseleave(function(){
+        $(".combine-option-container").fadeOut(100);
+    });
+
+ 
+    $(document).on('contextmenu', ".item-slot", function(e) {
+        if ($(this).parent().attr("data-inventory") == "player") {
+            if($(this).hasClass("item-drag"))
+            {
+                var ItemData = $(this).data("item");
+                var ItemInventory = $(this).parent().attr("data-inventory");
+                var id = $(this).attr("data-slot");
+                ClickedItemData = ItemData;
+                var menu = $('.menu');
+                menu.empty();
+                e.preventDefault();
+                menu.css({
+                    top: (e.pageY-15),
+                    left: (e.pageX-60)
+                });
+
+                menu.append(`<center><div class="menudiv" onclick="useItem(${id})"><span>USE</span></div><div class="menudiv" onclick="giveItem(${id})"><span>GIVE</span></div></center>`);
+                if (!ItemData.useable) {
+                    $('.menu').empty();
+                    menu.append(`<center><div class="menudiv" onclick="giveItem(${id})"><span>GIVE</span></div></center>`);
+                }
+                if (ItemData.name !== undefined) {
+                    if (ItemData.name.split("_")[0] == "weapon") {
+                        
+                        $('.menu').empty();
+                        menu.append(`<center><div class="menudiv" onclick="giveItem(${id})"><span>GIVE</span></div><div class="menudiv" style="width:190px;" onclick="showAttachment()"><span>ATTACHMENTS</span></div></center>`);
+                        menu.css({
+                            top: (e.pageY-15),
+                            left: (e.pageX-95)
+                        });
+                        
+                    }
+                }
+                
+                //menu.fadeIn();
+                menu.show();                
+            }
+            else
+            {
+                hideMenu();
+            }
+        }
+        else
+        {
+            hideMenu();
+        }
+    });
+    
+    $(document).click(function() { 
+        hideMenu();
+    });
+});
+
 $(document).on("click", ".item-slot", function(e) {
     e.preventDefault();
     var ItemData = $(this).data("item");
@@ -184,9 +332,9 @@ $(document).on("click", ".item-slot", function(e) {
             if (ItemData.name.split("_")[0] == "weapon") {
                 if (!$("#weapon-attachments").length) {
                     // if (ItemData.info.attachments !== null && ItemData.info.attachments !== undefined && ItemData.info.attachments.length > 0) {
-                    $(".inv-options-list").append(
-                        '<div class="inv-option-item" id="weapon-attachments"><p><i style="margin-top: 1rem" class="fas fa-gun"></i></p></div>'
-                    );
+                    // $(".inv-options-list").append(
+                    //     '<div class="inv-option-item" id="weapon-attachments"><p><i style="margin-top: 1rem" class="fas fa-gun"></i></p></div>'
+                    // );
                     $("#weapon-attachments").hide().fadeIn(250);
                     ClickedItemData = ItemData;
                     // }
@@ -248,29 +396,9 @@ $(document).on("click", ".weapon-attachments-back", function(e) {
     AttachmentScreenActive = false;
 });
 
-// function changeInventoryColor(color) {
-//     $( ".player-inventory-bg" ).css( "background-color", color);
-//     $( ".other-inventory-bg" ).css( "background-color", color);
-//     $( ".inv-options" ).css( "background-color", color);
-//     localStorage.setItem('ps-inventory-color', color);
-// }
-
-// const savedColor = localStorage.getItem('ps-inventory-color');
-
-// if (savedColor) {
-//     changeInventoryColor(savedColor)
-// }
-
-// $('#favcolor').change(function(){
-//     let color = $(this).val();
-//     let hexOpacity = "CC";
-//     let finalColor = color+hexOpacity;
-//     changeInventoryColor(finalColor);
-// });
-
 function FormatAttachmentInfo(data) {
     $.post(
-        "https://ps-inventory/GetWeaponData",
+        "https://qb-inventory/GetWeaponData",
         JSON.stringify({
             weapon: data.name,
             ItemData: ClickedItemData,
@@ -368,7 +496,7 @@ function handleAttachmentDrag() {
         hoverClass: "weapon-attachments-remove-hover",
         drop: function(event, ui) {
             $.post(
-                "https://ps-inventory/RemoveAttachment",
+                "https://qb-inventory/RemoveAttachment",
                 JSON.stringify({
                     AttachmentData: AttachmentDraggingData,
                     WeaponData: ClickedItemData,
@@ -436,7 +564,7 @@ $(document).on("click", "#weapon-attachments", function(e) {
         FormatAttachmentInfo(ClickedItemData);
     } else {
         $.post(
-            "https://ps-inventory/Notify",
+            "https://qb-inventory/Notify",
             JSON.stringify({
                 message: "Attachments are unavailable for this gun.",
                 type: "error",
@@ -654,6 +782,57 @@ function FormatItemInfo(itemData, dom) {
     }
 }
 
+function isNumberKey(evt){	
+    var charCode = (evt.which) ? evt.which : evt.keyCode 	
+    if(charCode == 46)	
+    {   	
+        $.post(	
+            "https://qb-inventory/InvalidKey",	
+            JSON.stringify({	
+                type:"invalid key",	
+            })	
+        ); 	
+        $("#item-amount").val("");	
+        return false;	
+    }	
+    if (charCode < 48 || charCode > 57)	
+    {	
+        return false;	
+    }	
+    else	
+    {	
+        return true;	
+    }	
+}	
+$(document).on("input change", "#item-amount", function(e) {	
+    	
+    var amount = 0;	
+    if($("#item-amount").val())	
+    {	
+        amount = parseInt($("#item-amount").val());	
+    }	
+    else	
+    {	
+        amount = 0;	
+    }	
+    	
+    document.getElementById("item-amount").value = amount;	
+        	
+    if(amount < 0)	
+    {	
+        $("#item-amount").val("0");	
+    }	
+    else	
+    {	
+        $("#item-amount").val(amount);	
+    }	
+    if($("#item-amount").val() == "")	
+    {	
+        $("#item-amount").val("0");	
+    }	
+    if (this.value.length > this.maxLength) this.value = this.value.slice(0, this.maxLength);	
+});
+
 function handleDragDrop() {
     $(".item-drag").draggable({
         helper: "clone",
@@ -847,7 +1026,7 @@ function handleDragDrop() {
                     Inventory.Close();
                 }
                 $.post(
-                    "https://ps-inventory/UseItem",
+                    "https://qb-inventory/UseItem",
                     JSON.stringify({
                         inventory: fromInventory,
                         item: fromData,
@@ -871,7 +1050,7 @@ function handleDragDrop() {
             }
             $(this).css("background", "rgba(35,35,35, 0.7");
             $.post(
-                "https://ps-inventory/DropItem",
+                "https://qb-inventory/DropItem",
                 JSON.stringify({
                     inventory: fromInventory,
                     item: fromData,
@@ -1124,7 +1303,7 @@ $(document).on("click", ".CombineItem", function(e) {
     e.preventDefault();
     if (combineslotData.toData.combinable.anim != null) {
         $.post(
-            "https://ps-inventory/combineWithAnim",
+            "https://qb-inventory/combineWithAnim",
             JSON.stringify({
                 combineData: combineslotData.toData.combinable,
                 usedItem: combineslotData.toData.name,
@@ -1133,7 +1312,7 @@ $(document).on("click", ".CombineItem", function(e) {
         );
     } else {
         $.post(
-            "https://ps-inventory/combineItem",
+            "https://qb-inventory/combineItem",
             JSON.stringify({
                 reward: combineslotData.toData.combinable.reward,
                 toItem: combineslotData.toData.name,
@@ -1168,6 +1347,9 @@ function optionSwitch(
     toData,
     fromData
 ) {
+    InventoryError($fromInv, $fromSlot);
+    return false;
+
     fromData.slot = parseInt($toSlot);
 
     $toInv.find("[data-slot=" + $toSlot + "]").data("item", fromData);
@@ -1259,7 +1441,7 @@ function optionSwitch(
     }
 
     $.post(
-        "https://ps-inventory/SetInventoryData",
+        "https://qb-inventory/SetInventoryData",
         JSON.stringify({
             fromInventory: $fromInv.attr("data-inventory"),
             toInventory: $toInv.attr("data-inventory"),
@@ -1267,6 +1449,7 @@ function optionSwitch(
             toSlot: $toSlot,
             fromAmount: $toAmount,
             toAmount: toData.amount,
+            id:flagvalue,
         })
     );
 }
@@ -1288,7 +1471,11 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
             InventoryError($fromInv, $fromSlot);
             return;
         }
-
+        if(toData != null && toData.name != fromData.name)
+        {
+            InventoryError($fromInv, $fromSlot);
+            return;
+        }
         if (
             ($fromInv.attr("data-inventory") == "player" ||
                 $fromInv.attr("data-inventory") == "hotbar") &&
@@ -1314,6 +1501,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
             toData.name == fromData.name &&
             !fromData.unique
         ) {
+            
             var newData = [];
             newData.name = toData.name;
             newData.label = toData.label;
@@ -1331,7 +1519,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                 if (newData.info.quality !== fromData.info.quality  ) {
                     InventoryError($fromInv, $fromSlot);
                     $.post(
-                        "https://ps-inventory/Notify",
+                        "https://qb-inventory/Notify",
                         JSON.stringify({
                             message: "You can not stack items which are not the same quality.",
                             type: "error",
@@ -1708,15 +1896,16 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                     // }
                         }
                     }
-            $.post("https://ps-inventory/PlayDropSound", JSON.stringify({}));
+            $.post("https://qb-inventory/PlayDropSound", JSON.stringify({}));
             $.post(
-                "https://ps-inventory/SetInventoryData",
+                "https://qb-inventory/SetInventoryData",
                 JSON.stringify({
                     fromInventory: $fromInv.attr("data-inventory"),
                     toInventory: $toInv.attr("data-inventory"),
                     fromSlot: $fromSlot,
                     toSlot: $toSlot,
                     fromAmount: $toAmount,
+                    id:flagvalue,
                 })
             );
         } else {
@@ -1731,7 +1920,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                     isItemAllowed(fromData.name, toData.combinable.accept)
                 ) {
                     $.post(
-                        "https://ps-inventory/getCombineItem",
+                        "https://qb-inventory/getCombineItem",
                         JSON.stringify({ item: toData.combinable.reward }),
                         function(item) {
                             $(".combine-option-text").html(
@@ -1969,7 +2158,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                     // }
 
                     $.post(
-                        "https://ps-inventory/SetInventoryData",
+                        "https://qb-inventory/SetInventoryData",
                         JSON.stringify({
                             fromInventory: $fromInv.attr("data-inventory"),
                             toInventory: $toInv.attr("data-inventory"),
@@ -1977,6 +2166,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                             toSlot: $toSlot,
                             fromAmount: $toAmount,
                             toAmount: toData.amount,
+                            id:flagvalue,
                         })
                     );
                 } else {
@@ -2015,17 +2205,18 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                     }
 
                     $.post(
-                        "https://ps-inventory/SetInventoryData",
+                        "https://qb-inventory/SetInventoryData",
                         JSON.stringify({
                             fromInventory: $fromInv.attr("data-inventory"),
                             toInventory: $toInv.attr("data-inventory"),
                             fromSlot: $fromSlot,
                             toSlot: $toSlot,
                             fromAmount: $toAmount,
+                            id:flagvalue,
                         })
                     );
                 }
-                $.post("https://ps-inventory/PlayDropSound", JSON.stringify({}));
+                $.post("https://qb-inventory/PlayDropSound", JSON.stringify({}));
             } else if (
                 fromData.amount > $toAmount &&
                 (toData == undefined || toData == null)
@@ -2298,15 +2489,16 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                         // }
                     // }
                         }
-                $.post("https://ps-inventory/PlayDropSound", JSON.stringify({}));
+                $.post("https://qb-inventory/PlayDropSound", JSON.stringify({}));
                 $.post(
-                    "https://ps-inventory/SetInventoryData",
+                    "https://qb-inventory/SetInventoryData",
                     JSON.stringify({
                         fromInventory: $fromInv.attr("data-inventory"),
                         toInventory: $toInv.attr("data-inventory"),
                         fromSlot: $fromSlot,
                         toSlot: $toSlot,
                         fromAmount: $toAmount,
+                        id:flagvalue,
                     })
                 );
             } else {
@@ -2339,7 +2531,7 @@ function InventoryError($elinv, $elslot) {
             .find("[data-slot=" + $elslot + "]")
             .css("background", "rgba(255, 255, 255, 0.3)");
     }, 500);
-    $.post("https://ps-inventory/PlayDropFail", JSON.stringify({}));
+    $.post("https://qb-inventory/PlayDropFail", JSON.stringify({}));
 }
 
 var requiredItemOpen = false;
@@ -2349,12 +2541,12 @@ var requiredItemOpen = false;
 
     Inventory.slots = 40;
 
-    Inventory.dropslots = 32;
+    Inventory.dropslots = 42;
     Inventory.droplabel = "Drop";
     Inventory.dropmaxweight = 100000;
 
     Inventory.Error = function() {
-        $.post("https://ps-inventory/PlayDropFail", JSON.stringify({}));
+        $.post("https://qb-inventory/PlayDropFail", JSON.stringify({}));
     };
 
     Inventory.IsWeaponBlocked = function(WeaponName) {
@@ -2468,7 +2660,8 @@ var requiredItemOpen = false;
     Inventory.Open = function(data) {
         totalWeight = 0;
         totalWeightOther = 0;
-    
+        flagvalue = data.flagvalue;
+        hideMenu();
         $(".player-inv-label").html(data.Name);
         $(".player-inventory").find(".item-slot").remove();
         $(".ply-hotbar-inventory").find(".item-slot").remove();
@@ -2517,6 +2710,7 @@ var requiredItemOpen = false;
         $(".player-inventory").append(remainingSlots);
         
         if (data.other != null && data.other != "") {
+            $(".other-inventory").empty();
             for (i = 1; i < data.other.slots + 1; i++) {
                 $(".other-inventory").append(
                     '<div class="item-slot" data-slot="' +
@@ -2758,6 +2952,7 @@ var requiredItemOpen = false;
     };
 
     Inventory.Close = function() {
+        hideMenu();
         // $(".item-slot").css("border", "1px solid rgba(255, 255, 255, 0.1)");
         $(".ply-hotbar-inventory").css("display", "block");
         // $(".ply-iteminfo-container").css("display", "none");
@@ -2768,7 +2963,7 @@ var requiredItemOpen = false;
         if ($("#rob-money").length) {
             $("#rob-money").remove();
         }
-        $.post("https://ps-inventory/CloseInventory", JSON.stringify({}));
+        $.post("https://qb-inventory/CloseInventory", JSON.stringify({}));
 
         if (AttachmentScreenActive) {
             $("#qbcore-inventory").css({ left: "0vw" });
@@ -3106,7 +3301,7 @@ $(document).on("click", "#rob-money", function(e) {
     e.preventDefault();
     var TargetId = $(this).data("TargetId");
     $.post(
-        "https://ps-inventory/RobMoney",
+        "https://qb-inventory/RobMoney",
         JSON.stringify({
             TargetId: TargetId,
         })
@@ -3129,7 +3324,7 @@ $("#item-give").droppable({
             amount = fromData.amount;
         }
         $.post(
-            "https://ps-inventory/GiveItem",
+            "https://qb-inventory/GiveItem",
             JSON.stringify({
                 inventory: fromInventory,
                 item: fromData,

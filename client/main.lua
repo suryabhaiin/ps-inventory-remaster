@@ -14,7 +14,8 @@ local isCrafting = false
 local isHotbar = false
 local WeaponAttachments = {}
 local showBlur = true
-
+local isOpen = false
+local flagvalue = math.random(111111, 99999999)
 local function HasItem(items, amount)
     local isTable = type(items) == 'table'
     local isArray = isTable and table.type(items) == 'array' or false
@@ -50,9 +51,9 @@ exports("HasItem", HasItem)
 
 RegisterNUICallback('showBlur', function()
     Wait(50)
-    TriggerEvent("ps-inventory:client:showBlur")
+    TriggerEvent("qb-inventory:client:showBlur")
 end) 
-RegisterNetEvent("ps-inventory:client:showBlur", function()
+RegisterNetEvent("qb-inventory:client:showBlur", function()
     Wait(50)
     showBlur = not showBlur
 end)
@@ -126,20 +127,28 @@ local function IsBackEngine(vehModel)
     return BackEngineVehicles[vehModel]
 end
 
-
+local inTrunk = false
 local function OpenTrunk()
     local vehicle = QBCore.Functions.GetClosestVehicle()
     LoadAnimDict("amb@prop_human_bum_bin@idle_b")
-    TaskPlayAnim(PlayerPedId(), "amb@prop_human_bum_bin@idle_b", "idle_d", 4.0, 4.0, -1, 50, 0, false, false, false)
+    --TaskPlayAnim(PlayerPedId(), "amb@prop_human_bum_bin@idle_b", "idle_d", 8.0, -8, -1, 50, 0, false, false, false)
+    inTrunk = true
     if IsBackEngine(GetEntityModel(vehicle)) then
         SetVehicleDoorOpen(vehicle, 4, false, false)
     else
         SetVehicleDoorOpen(vehicle, 5, false, false)
     end
+    while inTrunk do
+        if not IsEntityPlayingAnim(PlayerPedId(), 'amb@prop_human_bum_bin@idle_b', 'idle_d', 3) then
+            TaskPlayAnim(PlayerPedId(), "amb@prop_human_bum_bin@idle_b", "idle_d", 8.0, -8, -1, 50, 0, false, false, false)
+        end
+        Wait(0)
+    end
 end
 
 ---Closes the trunk of the closest vehicle
 local function CloseTrunk()
+    inTrunk = false
     local vehicle = QBCore.Functions.GetClosestVehicle()
     LoadAnimDict("amb@prop_human_bum_bin@idle_b")
     TaskPlayAnim(PlayerPedId(), "amb@prop_human_bum_bin@idle_b", "exit", 4.0, 4.0, -1, 50, 0, false, false, false)
@@ -361,6 +370,14 @@ end)
 AddEventHandler('onResourceStop', function(name)
     if name ~= GetCurrentResourceName() then return end
     if Config.UseItemDrop then RemoveAllNearbyDrops() end
+    TriggerScreenblurFadeOut(1000)
+    SetNuiFocus(false, false)
+end)
+AddEventHandler('onResourceStart', function(name)
+    if name ~= GetCurrentResourceName() then return end
+    if Config.UseItemDrop then RemoveAllNearbyDrops() end
+    TriggerScreenblurFadeOut(1000)
+    SetNuiFocus(false, false)
 end)
 
 RegisterNetEvent('inventory:client:CheckOpenState', function(type, id, label)
@@ -379,6 +396,10 @@ RegisterNetEvent('inventory:client:CheckOpenState', function(type, id, label)
         end
     elseif type == "drop" then
         if name ~= CurrentDrop or CurrentDrop == nil then
+            TriggerServerEvent('inventory:server:SetIsOpenState', false, type, id)
+        end
+    elseif type == "otherplayer" then
+        if name ~= currentOtherInventory or currentOtherInventory == nil then -- need to fix
             TriggerServerEvent('inventory:server:SetIsOpenState', false, type, id)
         end
     end
@@ -423,7 +444,7 @@ end)
 RegisterNetEvent('inventory:client:OpenInventory', function(PlayerAmmo, inventory, other)
     if not IsEntityDead(PlayerPedId()) then
         if Config.Progressbar.Enable then
-            QBCore.Functions.Progressbar('open_inventory', 'Opening Inventory...', math.random(Config.Progressbar.minT, Config.Progressbar.maxT), false, true, { -- Name | Label | Time | useWhileDead | canCancel
+            QBCore.Functions.Progressbar('open_inventory', 'Opening Inventory...', math.random(Config.Progressbar.minT, Config.Progressbar.maxT), false, false, { -- Name | Label | Time | useWhileDead | canCancel
                 disableMovement = false,
                 disableCarMovement = false,
                 disableMouse = false,
@@ -437,6 +458,35 @@ RegisterNetEvent('inventory:client:OpenInventory', function(PlayerAmmo, inventor
                 if other then
                     currentOtherInventory = other.name
                 end
+                flagvalue = math.random(111111, 99999999)
+                QBCore.Functions.TriggerCallback('inventory:server:ConvertQuality', function(data)
+                    inventory = data.inventory
+                    other = data.other
+                    SendNUIMessage({
+                        action = "open",
+                        inventory = inventory,
+                        slots = Config.MaxInventorySlots,
+                        other = other,
+                        maxweight = Config.MaxInventoryWeight,
+                        Ammo = PlayerAmmo,
+                        maxammo = Config.MaximumAmmoValues,
+                        Name = PlayerData.charinfo.firstname .." ".. PlayerData.charinfo.lastname .." - [".. GetPlayerServerId(PlayerId()) .."]", 
+                        flagvalue = flagvalue,
+                    })
+                    inInventory = true
+                    end, inventory, other)
+            end)
+        else
+            Wait(500)
+            ToggleHotbar(false)
+            if showBlur == true then
+                TriggerScreenblurFadeIn(1000)
+            end
+            SetNuiFocus(true, true)
+            if other then
+                currentOtherInventory = other.name
+            end
+            flagvalue = math.random(111111, 99999999)
             QBCore.Functions.TriggerCallback('inventory:server:ConvertQuality', function(data)
                 inventory = data.inventory
                 other = data.other
@@ -449,34 +499,8 @@ RegisterNetEvent('inventory:client:OpenInventory', function(PlayerAmmo, inventor
                     Ammo = PlayerAmmo,
                     maxammo = Config.MaximumAmmoValues,
                     Name = PlayerData.charinfo.firstname .." ".. PlayerData.charinfo.lastname .." - [".. GetPlayerServerId(PlayerId()) .."]", 
+                    flagvalue = flagvalue,
                 })
-                inInventory = true
-                end, inventory, other)
-
-        end)
-        else
-            Wait(500)
-            ToggleHotbar(false)
-            if showBlur == true then
-                TriggerScreenblurFadeIn(1000)
-            end
-            SetNuiFocus(true, true)
-            if other then
-                currentOtherInventory = other.name
-            end
-        QBCore.Functions.TriggerCallback('inventory:server:ConvertQuality', function(data)
-            inventory = data.inventory
-            other = data.other
-            SendNUIMessage({
-                action = "open",
-                inventory = inventory,
-                slots = Config.MaxInventorySlots,
-                other = other,
-                maxweight = Config.MaxInventoryWeight,
-                Ammo = PlayerAmmo,
-                maxammo = Config.MaximumAmmoValues,
-                Name = PlayerData.charinfo.firstname .." ".. PlayerData.charinfo.lastname .." - [".. GetPlayerServerId(PlayerId()) .."]", 
-            })
             inInventory = true
             end,inventory,other)
         end
@@ -695,14 +719,16 @@ RegisterCommand('closeinv', function()
     closeInventory()
 end, false)
 
-RegisterNetEvent("ps-inventory:client:closeinv", function()
+RegisterNetEvent("qb-inventory:client:closeinv", function()
     closeInventory()
 end)
 
-RegisterCommand('inventory', function()
+function openInventory()
     if IsNuiFocused() then return end
+    if isOpen then return end
     if not isCrafting and not inInventory then
         if not PlayerData.metadata["isdead"] and not PlayerData.metadata["inlaststand"] and not PlayerData.metadata["ishandcuffed"] and not IsPauseMenuActive() then
+            isOpen = true
             local ped = PlayerPedId()
             local curVeh = nil
             local VendingMachine = nil
@@ -729,7 +755,8 @@ RegisterCommand('inventory', function()
                             CurrentGlovebox = nil
                         else
                             QBCore.Functions.Notify("Vehicle locked.", "error")
-                            return
+                            CurrentVehicle = nil
+                            --return
                         end
                     else
                         CurrentVehicle = nil
@@ -800,8 +827,8 @@ RegisterCommand('inventory', function()
                 OpenTrunk()
             elseif CurrentGlovebox then
                 TriggerServerEvent("inventory:server:OpenInventory", "glovebox", CurrentGlovebox)
-            elseif CurrentDrop ~= 0 then
-                TriggerServerEvent("inventory:server:OpenInventory", "drop", CurrentDrop)
+            -- elseif CurrentDrop ~= 0 then
+            --     TriggerServerEvent("inventory:server:OpenInventory", "drop", CurrentDrop)
             elseif VendingMachine then
                 local ShopItems = {}
                 ShopItems.label = "Vending Machine"
@@ -809,27 +836,39 @@ RegisterCommand('inventory', function()
                 ShopItems.slots = #Config.VendingItem
                 TriggerServerEvent("inventory:server:OpenInventory", "shop", "Vendingshop_"..math.random(1, 99), ShopItems)
             else
-                openAnim()
+                -- openAnim()
                 TriggerServerEvent("inventory:server:OpenInventory")
             end
         end
     end
-end, false)
+end
 
-RegisterKeyMapping('inventory', 'Open Inventory', 'keyboard', 'TAB')
+--RegisterKeyMapping('inventory', 'Open Inventory', 'keyboard', 'TAB')
 
-RegisterCommand('hotbar', function()
+function openHotbar()
     isHotbar = not isHotbar
     if not PlayerData.metadata["isdead"] and not PlayerData.metadata["inlaststand"] and not PlayerData.metadata["ishandcuffed"] and not IsPauseMenuActive() then
         ToggleHotbar(isHotbar)
     end
+end
+
+CreateThread(function()
+    while true do
+        Wait(0)
+        if IsControlJustPressed(0, 211) then
+            openInventory()
+        end
+        if IsControlJustPressed(0, 20) then
+            openHotbar()
+        end
+    end
 end)
 
-RegisterKeyMapping('hotbar', 'Toggles keybind slots', 'keyboard', 'z')
+--RegisterKeyMapping('hotbar', 'Toggles keybind slots', 'keyboard', 'z')
 
 for i = 1, 6 do
     RegisterCommand('slot' .. i,function()
-        if not PlayerData.metadata["isdead"] and not PlayerData.metadata["inlaststand"] and not PlayerData.metadata["ishandcuffed"] and not IsPauseMenuActive() and not LocalPlayer.state.inv_busy then
+        if not PlayerData.metadata["isdead"] and not PlayerData.metadata["inlaststand"] and not PlayerData.metadata["ishandcuffed"] and not IsPauseMenuActive() and not IsNuiFocused() and not LocalPlayer.state.inv_busy then
             if i == 6 then
                 i = Config.MaxInventorySlots
             end
@@ -839,7 +878,9 @@ for i = 1, 6 do
     RegisterKeyMapping('slot' .. i, 'Uses the item in slot ' .. i, 'keyboard', i)
 end
 
-RegisterNetEvent('ps-inventory:client:giveAnim', function()
+RegisterNetEvent('qb-inventory:client:giveAnim', function()
+    if IsPedInAnyVehicle(PlayerPedId()) then return end
+    if PlayerData.metadata["isdead"] or PlayerData.metadata["inlaststand"] or PlayerData.metadata["ishandcuffed"] then return end
     LoadAnimDict('mp_common')
 	TaskPlayAnim(PlayerPedId(), 'mp_common', 'givetake1_b', 8.0, 1.0, -1, 16, 0, 0, 0, 0)
 end)
@@ -901,12 +942,15 @@ RegisterNUICallback("CloseInventory", function()
         CurrentDrop = nil
         CurrentVehicle = nil
         CurrentGlovebox = nil
+        currentOtherInventory = nil
         CurrentStash = nil
         SetNuiFocus(false, false)
         inInventory = false
         TriggerScreenblurFadeOut(1000)
         ClearPedTasks(PlayerPedId())
         return
+    else
+        currentOtherInventory = nil
     end
     if CurrentVehicle ~= nil then
         CloseTrunk()
@@ -926,6 +970,9 @@ RegisterNUICallback("CloseInventory", function()
     TriggerScreenblurFadeOut(1000)
     SetNuiFocus(false, false)
     inInventory = false
+    Wait(100)
+    isOpen = false
+    LocalPlayer.state:set("inv_busy", false, true)
 end)
 
 RegisterNUICallback("UseItem", function(data, cb)
@@ -966,7 +1013,13 @@ RegisterNUICallback('combineWithAnim', function(data, cb)
 end)
 
 RegisterNUICallback("SetInventoryData", function(data, cb)
-    TriggerServerEvent("inventory:server:SetInventoryData", data.fromInventory, data.toInventory, data.fromSlot, data.toSlot, data.fromAmount, data.toAmount)
+    if IsNuiFocused() then
+        if flagvalue == data.id then
+            TriggerServerEvent("inventory:server:SetInventoryData", data.fromInventory, data.toInventory, data.fromSlot, data.toSlot, data.fromAmount, data.toAmount)
+        else
+            closeInventory()
+        end
+    end
     cb('ok')
 end)
 
@@ -1061,6 +1114,27 @@ CreateThread(function()
         end
         Wait(500)
     end
+end)
+
+local count = 0
+RegisterNUICallback("InvalidKey", function(data)	
+    if count >= 3 then	
+        TriggerServerEvent("inventory:server:dropPlayer", "Blacklisted key(.) pressed more than 3 time in inventory amount. Attempt "..count.."/3")	
+    else	
+        count = count+1	
+        QBCore.Functions.Notify("Attempt "..count.."/3. Blacklisted Key not allowded. More than 3 attempt will be kick you from server.", "error", 20000)	
+        closeInventory()	
+        TriggerServerEvent("inventory:server:sendBlacklistedkeyLog", "Blacklisted key pressed in inventory amount. Attempt "..count.."/3 time")	
+    end	
+end)	
+CreateThread(function()	
+    while true do	
+        local sleep = 60000	
+        if count > 2 then	
+            count = 0	
+        end	
+        Wait(sleep)	
+    end	
 end)
 
 
