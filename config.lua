@@ -7,7 +7,7 @@ Config.MaxInventorySlots = 41 -- Max inventory slots for a player
 
 Config.CleanupDropTime = 1 * 60 -- How many seconds it takes for drops to be untouched before being deleted
 Config.MaxDropViewDistance = 3.5 -- The distance in GTA Units that a drop can be seen
-Config.UseItemDrop = true -- This will enable item object to spawn on drops instead of markers
+Config.UseItemDrop = true -- This will enable item object to spawn on drops instead of markers , recomded true, do not use false, true has more improvment in item duplication bug
 Config.ItemDropObject = `sf_prop_sf_backpack_01a` -- if Config.UseItemDrop is true, this will be the prop that spawns for the item
 
 Config.Progressbar = {

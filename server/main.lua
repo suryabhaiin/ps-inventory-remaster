@@ -2012,6 +2012,7 @@ RegisterNetEvent('inventory:server:SetInventoryData', function(fromInventory, to
 	else
 		-- drop
 		fromInventory = tonumber(fromInventory)
+		if not Drops[fromInventory] then return TriggerClientEvent('QBCore:Notify', src, "You don't have the right items..", "error") end
 		local fromItemData = Drops[fromInventory].items[fromSlot]
 		fromAmount = tonumber(fromAmount) or fromItemData.amount
 		if fromItemData and fromItemData.amount >= fromAmount then

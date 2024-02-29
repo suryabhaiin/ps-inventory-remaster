@@ -827,8 +827,8 @@ function openInventory()
                 OpenTrunk()
             elseif CurrentGlovebox then
                 TriggerServerEvent("inventory:server:OpenInventory", "glovebox", CurrentGlovebox)
-            -- elseif CurrentDrop ~= 0 then
-            --     TriggerServerEvent("inventory:server:OpenInventory", "drop", CurrentDrop)
+            elseif CurrentDrop ~= 0 and not Config.UseItemDrop then
+                TriggerServerEvent("inventory:server:OpenInventory", "drop", CurrentDrop)
             elseif VendingMachine then
                 local ShopItems = {}
                 ShopItems.label = "Vending Machine"
