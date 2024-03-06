@@ -1,3 +1,7 @@
+# Please Note this is fork of PS-Inventory and all original work create are hold by PS-Inventory creators. I make only UI changes and some fixes and added some new functions
+
+* In this script i changed all trigger from ps-inventory to qb-inventory for my own use and there no any other intention behind this. 
+
 # PS-Inventory
 
 lj-Inventory has been fully redesigned by [OK1ez](https://github.com/OK1ez), under the name ps-inventory.
@@ -12,23 +16,15 @@ Future updates will be coming and we will of course support all normal monitor s
 
 ### Full Inventory
 
-![image](https://github.com/Project-Sloth/ps-inventory/assets/82112471/fda2588d-e468-4fd5-8bf5-2f584f059609)
+![image](https://media.discordapp.net/attachments/977925336882876437/1213008558619099176/image.png?ex=65f3e940&is=65e17440&hm=715694ee08acb3b86b3dc2f0236704280f80b599f50df5e370075cf5c5fc740f&=&format=webp&quality=lossless&width=1440&height=625)
 
 ### Options Menu
 
-![image](https://github.com/Project-Sloth/ps-inventory/assets/82112471/1782f97a-27e6-441b-90a1-ff150cd846e2)
+![image](https://media.discordapp.net/attachments/977925336882876437/1213008812835868692/image.png?ex=65f3e97d&is=65e1747d&hm=1f6637e76af8596537581838f7111efebfc0ab1249dd630b42b8623b5d28c86c&=&format=webp&quality=lossless&width=1440&height=622)
 
 ### Hotbar Slots
 
-![image](https://github.com/Project-Sloth/ps-inventory/assets/82112471/c0a77f4a-f482-42f5-a5da-1f3571d14130)
-
-### Inventory Glovebox
-
-![image](https://github.com/Project-Sloth/ps-inventory/assets/82112471/432f8c79-1a9f-44d1-8062-50b596194752)
-
-### Inventory Trunk
-
-![image](https://github.com/Project-Sloth/ps-inventory/assets/82112471/f9c78e49-ec51-4d55-9ac0-b7058951d31a)
+![image](https://media.discordapp.net/attachments/977925336882876437/1213008386334003230/image.png?ex=65f3e917&is=65e17417&hm=af5d99e02d3332add22fa13b071087b8fb60c36fa7593971675527fe1c85c9c6&=&format=webp&quality=lossless&width=550&height=152)
 
 # Key Features
 
@@ -45,6 +41,8 @@ Future updates will be coming and we will of course support all normal monitor s
 * Text overflow ellipsis used (so your product titles with never overlap the containers and instead do "...")
 * Blurred inventory background
 * Elements of NoPixel 3.5 design ideas interwoven
+* Drop imrpoved on new create, drop id update without inv close
+* All known expolite fixed
 
 # How to install ps-inventory (Latest QBCore Update)
 
@@ -71,13 +69,13 @@ You need to add a decay value for all items in your `qb-core/shared/items.lua` f
 ```lua
 -- decay = The number of days it takes for an item to decay
 -- delete = If set to true, the item will be removed once it decays
-["decay"] = 28.0, ["delete"] = true
+    decay = 3.0, created = nil, usedecay = true,  delete = true,
 ```
 
 #### Example with the full item in QB-Core's shared file
 
 ```lua
-['sandwich'] = {['name'] = 'sandwich', ['label'] = 'Sandwich', ['weight'] = 200, ['type'] = 'item', ['image'] = 'sandwich.png', ['unique'] = false, ['useable'] = true, ['shouldClose'] = true,	['combinable'] = nil, ['description'] = 'Nice bread for your stomach', ["decay"] = 3.0, ["delete"] = true},
+sandwich = {name = 'sandwich', label = 'Sandwich', weight = 200, type = 'item', image = 'sandwich.png', unique = false, useable = true, shouldClose = true,	combinable = nil, description = 'Nice bread for your stomach', decay = 3.0, created = nil, usedecay = true,  delete = true,},
 ```
 
 In this example, the sandwich item would take 3 days to decay and once it does, it would be removed.
