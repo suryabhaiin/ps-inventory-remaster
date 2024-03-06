@@ -973,24 +973,11 @@ local function CreateNewDrop(source, fromSlot, toSlot, itemAmount, created)
 			id = dropId,
 		}
 		TriggerEvent("qb-log:server:CreateLog", "drop", "New Item Drop", "red", "**".. GetPlayerName(source) .. "** (citizenid: *"..Player.PlayerData.citizenid.."* | id: *"..source.."*) dropped new item; name: **"..itemData.name.."**, amount: **" .. itemAmount .. "**")
-		--TriggerClientEvent("inventory:client:DropItemAnim", source)
+		TriggerClientEvent("inventory:client:DropItemAnim", source)
 		TriggerClientEvent("inventory:client:AddDropItem", -1, dropId, source, coords)
 		if itemData.name:lower() == "radio" then
 			TriggerClientEvent('Radio.Set', source, false)
 		end
-		Wait(100)
-		local nPlayer = QBCore.Functions.GetPlayer(source)
-		secondInv = {}
-		secondInv.coords = Drops[dropId].coords
-		secondInv.name = dropId
-		secondInv.label = "Dropped-"..tostring(dropId)
-		secondInv.maxweight = 100000
-		secondInv.inventory = Drops[dropId].items
-		secondInv.slots = 42
-		Drops[dropId].isOpen = src
-		Drops[dropId].label = secondInv.label
-		Drops[dropId].createdTime = os.time()
-		TriggerClientEvent("inventory:client:OpenInventory", source, {}, nPlayer.PlayerData.items, secondInv)
 	else
 		TriggerClientEvent("QBCore:Notify", source, "You don't have this item!", "error")
 		return
