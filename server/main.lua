@@ -6,8 +6,6 @@ local Trunks = {}
 local Gloveboxes = {}
 local Stashes = {}
 local ShopItems = {}
-local OtherPlayerInv = {}
-
 -- Functions
 
 ---Loads the inventory for the player with the citizenid that is provided
@@ -143,10 +141,13 @@ local function AddItem(source, item, amount, slot, info, created)
 	local Player = QBCore.Functions.GetPlayer(source)
 
 	if not Player then return false end
-
 	local totalWeight = GetTotalWeight(Player.PlayerData.items)
 	local itemInfo = QBCore.Shared.Items[item:lower()]
 	local time = os.time()
+	if not itemInfo then 
+		QBCore.Functions.Notify(source, "Item does not exist "..item, 'error')
+		return false
+	end
 	if not created then
 		itemInfo['created'] = time
 	else
@@ -156,7 +157,6 @@ local function AddItem(source, item, amount, slot, info, created)
 		QBCore.Functions.Notify(source, "Item does not exist", 'error')
 		return false
 	end
-
 	amount = tonumber(amount) or 1
 	slot = tonumber(slot) or GetFirstSlotByItem(Player.PlayerData.items, item)
 	info = info or {}
@@ -360,7 +360,7 @@ local function SetInventory(source, items)
 
 	if Player.Offline then return end
 
-	TriggerEvent('qb-log:server:CreateLog', 'playerinventory', 'SetInventory', 'blue', '**' .. GetPlayerName(source) .. ' (citizenid: ' .. Player.PlayerData.citizenid .. ' | id: ' .. source .. ')** items set: ' .. json.encode(items))
+	TriggerEvent('qb-log:server:CreateLog', 'playerinventoryset', 'SetInventory', 'blue', '**' .. GetPlayerName(source) .. ' (citizenid: ' .. Player.PlayerData.citizenid .. ' | id: ' .. source .. ')** items set: ' .. json.encode(items))
 end
 
 exports("SetInventory", SetInventory)
@@ -973,7 +973,7 @@ local function CreateNewDrop(source, fromSlot, toSlot, itemAmount, created)
 			id = dropId,
 		}
 		TriggerEvent("qb-log:server:CreateLog", "drop", "New Item Drop", "red", "**".. GetPlayerName(source) .. "** (citizenid: *"..Player.PlayerData.citizenid.."* | id: *"..source.."*) dropped new item; name: **"..itemData.name.."**, amount: **" .. itemAmount .. "**")
-		TriggerClientEvent("inventory:client:DropItemAnim", source)
+		TriggerClientEvent("inventory:client:DropItemAnim", source, dropId)
 		TriggerClientEvent("inventory:client:AddDropItem", -1, dropId, source, coords)
 		if itemData.name:lower() == "radio" then
 			TriggerClientEvent('Radio.Set', source, false)
@@ -988,9 +988,7 @@ local function OpenInventory(name, id, other, origin)
 	local src = origin
 	local ply = Player(src)
     local Player = QBCore.Functions.GetPlayer(src)
-	if ply.state.inv_busy then
-		return QBCore.Functions.Notify(src, "Inventory is busy", 'error')
-	end
+	if ply.state.inv_busy then return QBCore.Functions.Notify(src, "Inventory is busy", 'error') end
 	if name and id then
 		local secondInv = {}
 		TriggerClientEvent("qb-inventory:client:closeinv", id)
@@ -1150,32 +1148,15 @@ local function OpenInventory(name, id, other, origin)
 		elseif name == "otherplayer" then
 			local OtherPlayer = QBCore.Functions.GetPlayer(tonumber(id))
 			if OtherPlayer then
-				if OtherPlayerInv[id] then
-					if OtherPlayerInv[id].isOpen then
-						local Target = QBCore.Functions.GetPlayer(OtherPlayerInv[id].isOpen)
-						if Target then
-							TriggerClientEvent('inventory:client:CheckOpenState', OtherPlayerInv[id].isOpen, name, id, "otherplayer-"..id)
-						else
-							OtherPlayerInv[id].isOpen = false
-						end
-					end
-				end
-				if OtherPlayerInv[id] and OtherPlayerInv[id].isOpen then
-					return QBCore.Functions.Notify(src, "Other Inventory is busy", 'error')
+				secondInv.name = "otherplayer-"..id
+				secondInv.label = "Player-"..id
+				secondInv.maxweight = Config.MaxInventoryWeight
+				secondInv.inventory = OtherPlayer.PlayerData.items
+				if (Player.PlayerData.job.name == "police" or Player.PlayerData.job.type == "leo") and Player.PlayerData.job.onduty then
+					secondInv.slots = Config.MaxInventorySlots
 				else
-					OtherPlayerInv[id] = {}
-					OtherPlayerInv[id].isOpen = src
-					secondInv.name = "otherplayer-"..id
-					secondInv.label = "Player-"..id
-					secondInv.maxweight = Config.MaxInventoryWeight
-					secondInv.inventory = OtherPlayer.PlayerData.items
-					if (Player.PlayerData.job.name == "police" or Player.PlayerData.job.type == "leo") and Player.PlayerData.job.onduty then
-						secondInv.slots = Config.MaxInventorySlots
-					else
-						secondInv.slots = Config.MaxInventorySlots - 1
-					end
+					secondInv.slots = Config.MaxInventorySlots - 1
 				end
-				Wait(250)
 			end
 		else
 			if Drops[id] then
@@ -1360,6 +1341,7 @@ end)
 
 RegisterNetEvent('inventory:server:SetIsOpenState', function(IsOpen, type, id)
 	if IsOpen then return end
+	local src = source
 	if type == "stash" then
 		Stashes[id].isOpen = false
 	elseif type == "trunk" then
@@ -1368,8 +1350,6 @@ RegisterNetEvent('inventory:server:SetIsOpenState', function(IsOpen, type, id)
 		Gloveboxes[id].isOpen = false
 	elseif type == "drop" then
 		Drops[id].isOpen = false
-	elseif type == "otherplayer" then
-		OtherPlayerInv[id].isOpen = false
 	end
 end)
 
@@ -1379,6 +1359,7 @@ RegisterNetEvent('inventory:server:OpenInventory', function(name, id, other)
 end)
 
 RegisterNetEvent('inventory:server:SaveInventory', function(type, id)
+	local src = source
 	if type == "trunk" then
 		if IsVehicleOwned(id) then
 			SaveOwnedVehicleItems(id, Trunks[id].items)
@@ -1401,8 +1382,6 @@ RegisterNetEvent('inventory:server:SaveInventory', function(type, id)
 				TriggerClientEvent("inventory:client:RemoveDropItem", -1, id)
 			end
 		end
-	elseif type == "otherplayer" then
-		OtherPlayerInv[id].isOpen = false
 	end
 end)
 
@@ -2069,11 +2048,11 @@ end)
 RegisterServerEvent("inventory:server:GiveItem", function(target, name, amount, slot)
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
-	target = tonumber(target)
-	local tp = Player(target)
-	if tp.state.inv_busy then
-		return QBCore.Functions.Notify(src, "Inventory is busy", 'error')
-	end
+	-- target = tonumber(target)
+	-- local tp = Player(target)
+	-- if tp.state.inv_busy then
+	-- 	return QBCore.Functions.Notify(src, "Inventory is busy", 'error')
+	-- end
     local OtherPlayer = QBCore.Functions.GetPlayer(target)
     local dist = #(GetEntityCoords(GetPlayerPed(src))-GetEntityCoords(GetPlayerPed(target)))
 	if Player == OtherPlayer then return QBCore.Functions.Notify(src, "You can\'t give yourself an item?") end
@@ -2119,11 +2098,37 @@ RegisterNetEvent('inventory:server:snowball', function(action)
 	end
 end)
 
+-- required for k9
+function getTrunkItems(plate)
+	if Trunks[plate] then
+		return Trunks[plate]
+	else
+		local result = MySQL.scalar.await('SELECT items FROM trunkitems WHERE plate = ?', {plate})
+		if not result then return false end
+		local data = {
+			items = json.decode(result)
+		}
+		return data
+	end
+end
+function getGloveboxItems(plate)
+	if Gloveboxes[plate] then
+		return Gloveboxes[plate]
+	else
+		local result = MySQL.scalar.await('SELECT items FROM gloveboxitems WHERE plate = ?', {plate})
+		if not result then return false end
+		local data = {
+			items = json.decode(result)
+		}
+		return data
+	end
+end
+exports("getGloveboxItems", getGloveboxItems)
+exports("getTrunkItems", getTrunkItems)
+-- required for k9
+
 -- callback
 
-QBCore.Functions.CreateCallback('qb-inventory:server:GetStashItems', function(source, cb, stashId)
-	cb(GetStashItems(stashId))
-end)
 
 QBCore.Functions.CreateCallback('inventory:server:GetCurrentDrops', function(_, cb)
 	cb(Drops)
@@ -2200,6 +2205,7 @@ QBCore.Commands.Add("giveitem", "Give An Item (Admin Only)", {{name="id", help="
 	local Player = QBCore.Functions.GetPlayer(id)
 	local amount = tonumber(args[3]) or 1
 	local itemData = QBCore.Shared.Items[tostring(args[2]):lower()]
+	
 	if Player then
 			if itemData then
 				-- check iteminfo
@@ -2350,6 +2356,8 @@ CreateThread(function()
 	end
 end)
 
+
+
 -- Decay System
 
 local TimeAllowed = 60 * 60 * 24 * 1 -- Maths for 1 day dont touch its very important and could break everything
@@ -2404,6 +2412,16 @@ QBCore.Functions.CreateCallback('inventory:server:ConvertQuality', function(sour
                     item.info = info
                 end
             end
+		elseif QBCore.Shared.Items[item.name:lower()]["decay"] ~= nil or QBCore.Shared.Items[item.name:lower()]["decay"] ~= 0 then
+			if QBCore.Shared.Items[item.name:lower()]["usedecay"] and QBCore.Shared.Items[item.name:lower()]["useable"] then
+				if item.info.created then
+					item.created = item.info.created
+				else
+					item.created = os.time()
+					local info = {created = os.time()}
+					item.info = info
+				end
+			end
         end
     end
     if other then
@@ -2434,6 +2452,16 @@ QBCore.Functions.CreateCallback('inventory:server:ConvertQuality', function(sour
 							item.info.quality = 100
 						else
 							local info = {quality = 100}
+							item.info = info
+						end
+					end
+				elseif QBCore.Shared.Items[item.name:lower()]["decay"] ~= nil or QBCore.Shared.Items[item.name:lower()]["decay"] ~= 0 then
+					if QBCore.Shared.Items[item.name:lower()]["usedecay"] and QBCore.Shared.Items[item.name:lower()]["useable"] then
+						if item.info.created then
+							item.created = item.info.created
+						else
+							item.created = os.time()
+							local info = {created = os.time()}
 							item.info = info
 						end
 					end
@@ -2469,6 +2497,16 @@ QBCore.Functions.CreateCallback('inventory:server:ConvertQuality', function(sour
 							item.info = info
 						end
 					end
+				elseif QBCore.Shared.Items[item.name:lower()]["decay"] ~= nil or QBCore.Shared.Items[item.name:lower()]["decay"] ~= 0 then
+					if QBCore.Shared.Items[item.name:lower()]["usedecay"] and QBCore.Shared.Items[item.name:lower()]["useable"] then
+						if item.info.created then
+							item.created = item.info.created
+						else
+							item.created = os.time()
+							local info = {created = os.time()}
+							item.info = info
+						end
+					end
 				end
 			end
 			Gloveboxes[uniqueId].items = other.inventory
@@ -2478,9 +2516,6 @@ QBCore.Functions.CreateCallback('inventory:server:ConvertQuality', function(sour
 				if item.created then
 					if QBCore.Shared.Items[item.name:lower()]["decay"] ~= nil or QBCore.Shared.Items[item.name:lower()]["decay"] ~= 0 then
 						if item.info then
-							if type(item.info) == "string" then
-								item.info = {}
-							end
 							if item.info.quality == nil then
 								item.info.quality = 100
 							end
@@ -2489,7 +2524,7 @@ QBCore.Functions.CreateCallback('inventory:server:ConvertQuality', function(sour
 							item.info = info
 						end
 						local quality = ConvertQuality(item)
-						if item.info.quality then
+                    	if item.info.quality then
 							if quality < item.info.quality then
 								item.info.quality = quality
 							end
@@ -2501,6 +2536,16 @@ QBCore.Functions.CreateCallback('inventory:server:ConvertQuality', function(sour
 							item.info.quality = 100
 						else
 							local info = {quality = 100}
+							item.info = info
+						end
+					end
+				elseif QBCore.Shared.Items[item.name:lower()]["decay"] ~= nil or QBCore.Shared.Items[item.name:lower()]["decay"] ~= 0 then
+					if QBCore.Shared.Items[item.name:lower()]["usedecay"] and QBCore.Shared.Items[item.name:lower()]["useable"] then
+						if item.info.created then
+							item.created = item.info.created
+						else
+							item.created = os.time()
+							local info = {created = os.time()}
 							item.info = info
 						end
 					end
@@ -2516,6 +2561,174 @@ QBCore.Functions.CreateCallback('inventory:server:ConvertQuality', function(sour
     data.other = other
     cb(data)
 end)
+
+
+-- Decay System
+
+-- local TimeAllowed = 60 * 60 * 24 * 1 -- Maths for 1 day dont touch its very important and could break everything
+-- function ConvertQuality(item)
+-- 	local StartDate = item.created
+--     local DecayRate = QBCore.Shared.Items[item.name:lower()]["decay"] ~= nil and QBCore.Shared.Items[item.name:lower()]["decay"] or 0.0
+--     if DecayRate == nil then
+--         DecayRate = 0
+--     end
+--     local TimeExtra = math.ceil((TimeAllowed * DecayRate))
+--     local percentDone = 100 - math.ceil((((os.time() - StartDate) / TimeExtra) * 100))
+--     if DecayRate == 0 then
+--         percentDone = 100
+--     end
+--     if percentDone < 0 then
+--         percentDone = 0
+--     end
+--     return percentDone
+-- end
+
+-- QBCore.Functions.CreateCallback('inventory:server:ConvertQuality', function(source, cb, inventory, other)
+--     local src = source
+--     local data = {}
+--     local Player = QBCore.Functions.GetPlayer(src)
+--     for _, item in pairs(inventory) do
+--         if item.created then
+--             if QBCore.Shared.Items[item.name:lower()]["decay"] ~= nil or QBCore.Shared.Items[item.name:lower()]["decay"] ~= 0 then
+--                 if item.info then
+--                     if type(item.info) == "string" then
+--                         item.info = {}
+--                     end
+--                     if item.info.quality == nil then
+--                         item.info.quality = 100
+--                     end
+--                 else
+--                     local info = {quality = 100}
+--                     item.info = info
+--                 end
+--                 local quality = ConvertQuality(item)
+--                 if item.info.quality then
+--                     if quality < item.info.quality then
+--                         item.info.quality = quality
+--                     end
+--                 else
+--                     item.info = {quality = quality}
+--                 end
+--             else
+--                 if item.info then
+--                     item.info.quality = 100
+--                 else
+--                     local info = {quality = 100}
+--                     item.info = info
+--                 end
+--             end
+--         end
+--     end
+--     if other then
+-- 		local inventoryType = QBCore.Shared.SplitStr(other.name, "-")[1]
+-- 		local uniqueId = QBCore.Shared.SplitStr(other.name, "-")[2]
+-- 		if inventoryType == "trunk" then
+-- 			for _, item in pairs(other.inventory) do
+-- 				if item.created then
+-- 					if QBCore.Shared.Items[item.name:lower()]["decay"] ~= nil or QBCore.Shared.Items[item.name:lower()]["decay"] ~= 0 then
+-- 						if item.info then
+-- 							if item.info.quality == nil then
+-- 								item.info.quality = 100
+-- 							end
+-- 						else
+-- 							local info = {quality = 100}
+-- 							item.info = info
+-- 						end
+-- 						local quality = ConvertQuality(item)
+--                     	if item.info.quality then
+-- 							if quality < item.info.quality then
+-- 								item.info.quality = quality
+-- 							end
+-- 						else
+-- 							item.info = {quality = quality}
+-- 						end
+-- 					else
+-- 						if item.info then
+-- 							item.info.quality = 100
+-- 						else
+-- 							local info = {quality = 100}
+-- 							item.info = info
+-- 						end
+-- 					end
+-- 				end
+-- 			end
+-- 			Trunks[uniqueId].items = other.inventory
+-- 			TriggerClientEvent("inventory:client:UpdateOtherInventory", Player.PlayerData.source, other.inventory, false)
+-- 		elseif inventoryType == "glovebox" then
+-- 			for _, item in pairs(other.inventory) do
+-- 				if item.created then
+-- 					if QBCore.Shared.Items[item.name:lower()]["decay"] ~= nil or QBCore.Shared.Items[item.name:lower()]["decay"] ~= 0 then
+-- 						if item.info then
+-- 							if item.info.quality == nil then
+-- 								item.info.quality = 100
+-- 							end
+-- 						else
+-- 							local info = {quality = 100}
+-- 							item.info = info
+-- 						end
+-- 						local quality = ConvertQuality(item)
+--                     	if item.info.quality then
+-- 							if quality < item.info.quality then
+-- 								item.info.quality = quality
+-- 							end
+-- 						else
+-- 							item.info = {quality = quality}
+-- 						end
+-- 					else
+-- 						if item.info then
+-- 							item.info.quality = 100
+-- 						else
+-- 							local info = {quality = 100}
+-- 							item.info = info
+-- 						end
+-- 					end
+-- 				end
+-- 			end
+-- 			Gloveboxes[uniqueId].items = other.inventory
+-- 			TriggerClientEvent("inventory:client:UpdateOtherInventory", Player.PlayerData.source, other.inventory, false)
+-- 		elseif inventoryType == "stash" then
+-- 			for _, item in pairs(other.inventory) do
+-- 				if item.created then
+-- 					if QBCore.Shared.Items[item.name:lower()]["decay"] ~= nil or QBCore.Shared.Items[item.name:lower()]["decay"] ~= 0 then
+-- 						if item.info then
+-- 							if type(item.info) == "string" then
+-- 								item.info = {}
+-- 							end
+-- 							if item.info.quality == nil then
+-- 								item.info.quality = 100
+-- 							end
+-- 						else
+-- 							local info = {quality = 100}
+-- 							item.info = info
+-- 						end
+-- 						local quality = ConvertQuality(item)
+-- 						if item.info.quality then
+-- 							if quality < item.info.quality then
+-- 								item.info.quality = quality
+-- 							end
+-- 						else
+-- 							item.info = {quality = quality}
+-- 						end
+-- 					else
+-- 						if item.info then
+-- 							item.info.quality = 100
+-- 						else
+-- 							local info = {quality = 100}
+-- 							item.info = info
+-- 						end
+-- 					end
+-- 				end
+-- 			end
+-- 			Stashes[uniqueId].items = other.inventory
+-- 			TriggerClientEvent("inventory:client:UpdateOtherInventory", Player.PlayerData.source, other.inventory, false)
+-- 		end
+--     end
+--     Player.Functions.SetInventory(inventory)
+--     TriggerClientEvent("inventory:client:UpdatePlayerInventory", Player.PlayerData.source, false)
+--     data.inventory = inventory
+--     data.other = other
+--     cb(data)
+-- end)
 
 RegisterNetEvent('inventory:server:dropPlayer', function(reason)	
 	local src = source	

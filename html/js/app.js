@@ -62,6 +62,13 @@ $(document).on("keydown", function() {
     }
 });
 
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Tab') {
+        event.preventDefault();
+        // Optionally, you can add your own custom behavior here
+    }
+});
+
 $(document).on("dblclick", ".item-slot", function(e) {
     var ItemData = $(this).data("item");
     var ItemInventory = $(this).parent().attr("data-inventory");
@@ -91,7 +98,6 @@ $(document).on("mouseenter", ".item-slot", function(e) {
     if ($(this).data("item") != null) {
         $(".ply-iteminfo-container").css("opacity", "1.0");
         $(".ply-iteminfo-container").fadeIn(150);
-        // FormatItemInfo($(this).data("item"));
         FormatItemInfo($(this).data("item"), $(this));
     } else {
         $(".ply-iteminfo-container").fadeOut(100);
@@ -116,18 +122,18 @@ function GetFirstFreeSlot($toInv, $fromSlot) {
 }
 
 function CanQuickMove() {
-    return false;
-    // var otherinventory = otherLabel.toLowerCase();
-    // var retval = true;
-    // // if (otherinventory == "grond") {
-    // //     retval = false
-    // // } else if (otherinventory.split("-")[0] == "dropped") {
-    // //     retval = false;
-    // // }
-    // if (otherinventory.split("-")[0] == "player") {
+     
+    var otherinventory = otherLabel.toLowerCase();
+    var retval = true;
+    // if (otherinventory == "grond") {
+    //     retval = false
+    // } else if (otherinventory.split("-")[0] == "dropped") {
     //     retval = false;
     // }
-    // return retval;
+    if (otherinventory.split("-")[0] == "player") {
+        retval = false;
+    }
+    return retval;
 }
 
 $(document).on("mousedown", ".item-slot", function(event) {
@@ -155,21 +161,22 @@ $(document).on("mousedown", ".item-slot", function(event) {
                     return;
                 }
                 if (fromSlot == toSlot && fromInventory == toInventory) {
+                    InventoryError(fromInventory, fromSlot);
                     return;
                 }
-                if (toAmount >= 0) {
-                    if (
-                        updateweights(
-                            fromSlot,
-                            toSlot,
-                            fromInventory,
-                            toInventory,
-                            toAmount
-                        )
-                    ) {
-                        swap(fromSlot, toSlot, fromInventory, toInventory, toAmount);
-                    }
-                }
+                // if (toAmount >= 0) {
+                //     if (
+                //         updateweights(
+                //             fromSlot,
+                //             toSlot,
+                //             fromInventory,
+                //             toInventory,
+                //             toAmount
+                //         )
+                //     ) {
+                //         swap(fromSlot, toSlot, fromInventory, toInventory, toAmount);
+                //     }
+                // }
             } else {
                 InventoryError(fromInventory, fromSlot);
             }
@@ -772,7 +779,19 @@ function FormatItemInfo(itemData, dom) {
         } else if (itemData.name == "labkey") {
             $(".item-info-title").html("<p>" + itemData.label + "</p>");
             $(".item-info-description").html("<p>Lab: " + itemData.info.lab + "</p><p style=\"font-size:11px\"><b>Weight: </b>" + itemData.weight + " | <b>Amount: </b> " + itemData.amount + " | <b>Quality: </b> " + "<a style=\"font-size:11px;color:green\">" + Math.floor(itemData.info.quality) + "</a>");
-        } else {
+        } else if (itemData.name == "vehiclerc") {
+            $(".item-info-title").html("<p>" + itemData.label + "</p>");
+            $(".item-info-description").html("<p>" + itemData.info.ownername + "  | <b>CID : </b>"+itemData.info.ownercid+"</p><br><p style=\"font-size:11px\"><b>RC Number : </b><a style=\"font-size:11px;color:yellow\"> "+itemData.info.id+"</a><br><b>Vehicle Name: </b> <a style=\"font-size:11px;color:yellow\">" + itemData.info.vehiclename + "</a><br><b>Plate: </b> <a style=\"font-size:11px;color:yellow\">" + itemData.info.vehicleplate + "</a> <br><b>Registartopn Date: </b> <a style=\"font-size:11px;color:yellow\">" + itemData.info.issuedate + "</a> <br><b>Expiry Date: </b> <a style=\"font-size:11px;color:yellow\">" + itemData.info.expiredate + "</a> <br><b>Issued By: </b><a style=\"font-size:11px;color:yellow\">" + itemData.info.issueby+"</a></p>");
+        
+        } else if (itemData.name == "rental_papers") {
+            $(".item-info-title").html('<p>' + itemData.label + '</p>')
+            $(".item-info-description").html(
+            '<p><strong>Temporary Owner: </strong><span>' + itemData.info.temporaryOwner + '</span></p>' + 
+            '<p><strong>Citizen ID: </strong><span>' + itemData.info.citizenid + '</span></p>' + 
+            '<p><strong>Vehicle Model: </strong><span>' + itemData.info.vehicleModel + '</span></p>' + 
+            '<p><strong>Plate: </strong><span>' + itemData.info.plate + '</span></p>');
+        }
+        else {
             $(".item-info-title").html("<p>" + itemData.label + "</p>");
             $(".item-info-description").html("<p>" + itemData.description + "</p><p style=\"font-size:11px\"><b>Weight: </b>" + itemData.weight + " | <b>Amount: </b> " + itemData.amount + " | <b>Quality: </b> " + "<a style=\"font-size:11px;color:green\">" + Math.floor(itemData.info.quality) + "</a>");
         }
@@ -1604,13 +1623,13 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                         if (newData.info.quality == undefined) {
                             newData.info.quality = 100.0;
                         }
-                        var QualityColor = "rgb(15, 255, 213)";
+                        var QualityColor = "rgb(9, 255, 0)";
                         if (newData.info.quality < 25) {
-                            QualityColor = "rgb(192, 57, 43)";
+                            QualityColor = "rgb(255, 0, 0)";
                         } else if (newData.info.quality > 25 && newData.info.quality < 50) {
-                            QualityColor = "rgb(230, 126, 34)";
+                            QualityColor = "rgb(243, 255, 0)";
                         } else if (newData.info.quality >= 50) {
-                            QualityColor = "rgb(15, 255, 213)";
+                            QualityColor = "rgb(9, 255, 0)";
                         }
                         if (newData.info.quality !== undefined) {
                             qualityLabel = newData.info.quality.toFixed();
@@ -1729,13 +1748,14 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                         if (newData.info.quality == undefined) {
                             newData.info.quality = 100.0;
                         }
-                        var QualityColor = "rgb(15, 255, 213)";
+                        
+                        var QualityColor = "rgb(9, 255, 0)";
                         if (newData.info.quality < 25) {
                             QualityColor = "rgb(192, 57, 43)";
                         } else if (newData.info.quality > 25 && newData.info.quality < 50) {
                             QualityColor = "rgb(230, 126, 34)";
                         } else if (newData.info.quality >= 50) {
-                            QualityColor = "rgb(15, 255, 213)";
+                            QualityColor = "rgb(9, 255, 0)";
                         }
                         if (newData.info.quality !== undefined) {
                             qualityLabel = newData.info.quality.toFixed();
@@ -1864,7 +1884,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                             if (newDataFrom.info.quality == undefined) {
                                 newDataFrom.info.quality = 100.0;
                             }
-                            var QualityColor = "rgb(15, 255, 213)";
+                            var QualityColor = "rgb(9, 255, 0)";
                             if (newDataFrom.info.quality < 25) {
                                 QualityColor = "rgb(192, 57, 43)";
                             } else if (
@@ -1873,7 +1893,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                             ) {
                                 QualityColor = "rgb(230, 126, 34)";
                             } else if (newDataFrom.info.quality >= 50) {
-                                QualityColor = "rgb(15, 255, 213)";
+                                QualityColor = "rgb(9, 255, 0)";
                             }
                             if (newDataFrom.info.quality !== undefined) {
                                 qualityLabel = newDataFrom.info.quality.toFixed();
@@ -2017,7 +2037,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                         if (fromData.info.quality == undefined) {
                             fromData.info.quality = 100.0;
                         }
-                        var QualityColor = "rgb(15, 255, 213)";
+                        var QualityColor = "rgb(9, 255, 0)";
                         if (fromData.info.quality < 25) {
                             QualityColor = "rgb(192, 57, 43)";
                         } else if (
@@ -2026,7 +2046,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                         ) {
                             QualityColor = "rgb(230, 126, 34)";
                         } else if (fromData.info.quality >= 50) {
-                            QualityColor = "rgb(15, 255, 213)";
+                            QualityColor = "rgb(9, 255, 0)";
                         }
                         if (fromData.info.quality !== undefined) {
                             qualityLabel = fromData.info.quality.toFixed();
@@ -2129,13 +2149,13 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                             if (toData.info.quality == undefined) {
                                 toData.info.quality = 100.0;
                             }
-                            var QualityColor = "rgb(15, 255, 213)";
+                            var QualityColor = "rgb(9, 255, 0)";
                             if (toData.info.quality < 25) {
                                 QualityColor = "rgb(192, 57, 43)";
                             } else if (toData.info.quality > 25 && toData.info.quality < 50) {
                                 QualityColor = "rgb(230, 126, 34)";
                             } else if (toData.info.quality >= 50) {
-                                QualityColor = "rgb(15, 255, 213)";
+                                QualityColor = "rgb(9, 255, 0)";
                             }
                             if (toData.info.quality !== undefined) {
                                 qualityLabel = toData.info.quality.toFixed();
@@ -2307,7 +2327,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                         if (newDataTo.info.quality == undefined) {
                             newDataTo.info.quality = 100.0;
                         }
-                        var QualityColor = "rgb(15, 255, 213)";
+                        var QualityColor = "rgb(9, 255, 0)";
                         if (newDataTo.info.quality < 25) {
                             QualityColor = "rgb(192, 57, 43)";
                         } else if (
@@ -2316,7 +2336,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                         ) {
                             QualityColor = "rgb(230, 126, 34)";
                         } else if (newDataTo.info.quality >= 50) {
-                            QualityColor = "rgb(15, 255, 213)";
+                            QualityColor = "rgb(9, 255, 0)";
                         }
                         if (newDataTo.info.quality !== undefined) {
                             qualityLabel = newDataTo.info.quality.toFixed();
@@ -2458,7 +2478,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                             if (newDataFrom.info.quality == undefined) {
                                 newDataFrom.info.quality = 100.0;
                             }
-                            var QualityColor = "rgb(15, 255, 213)";
+                            var QualityColor = "rgb(9, 255, 0)";
                             if (newDataFrom.info.quality < 25) {
                                 QualityColor = "rgb(192, 57, 43)";
                             } else if (
@@ -2467,7 +2487,7 @@ function swap($fromSlot, $toSlot, $fromInv, $toInv, $toAmount) {
                             ) {
                                 QualityColor = "rgb(230, 126, 34)";
                             } else if (newDataFrom.info.quality >= 50) {
-                                QualityColor = "rgb(15, 255, 213)";
+                                QualityColor = "rgb(9, 255, 0)";
                             }
                             if (newDataFrom.info.quality !== undefined) {
                                 qualityLabel = newDataFrom.info.quality.toFixed();
@@ -2570,13 +2590,13 @@ var requiredItemOpen = false;
                 if (item.info.quality == undefined) {
                     item.info.quality = 100;
                 }
-                var QualityColor = "rgb(15, 255, 213)";
+                var QualityColor = "rgb(9, 255, 0)";
                 if (item.info.quality < 25) {
                     QualityColor = "rgb(192, 57, 43)";
                 } else if (item.info.quality > 25 && item.info.quality < 50) {
                     QualityColor = "rgb(230, 126, 34)";
                 } else if (item.info.quality >= 50) {
-                    QualityColor = "rgb(15, 255, 213)";
+                    QualityColor = "rgb(9, 255, 0)";
                 }
                 if (item.info.quality !== undefined) {
                     qualityLabel = item.info.quality.toFixed();

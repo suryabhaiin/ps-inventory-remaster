@@ -26,7 +26,7 @@ Config.BinObjects = {
     "prop_bin_05a",
 }
 
-Config.CraftingObject = `prop_toolchest_05` -- Only needed if not using target | Line 928 to change Target Models
+Config.CraftingObject = `` -- Only needed if not using target | Line 928 to change Target Models
 
 Config.VendingItem = {
     -- [1] = {
@@ -61,6 +61,73 @@ Config.CraftingItems = {
     --     threshold = 0,
     --     points = 1,
     -- },
+}
+
+Config.TrunkSpace = {
+    ['default'] = { -- All the vehicle class that not listed here will use this as default
+        slots = 35,
+        maxWeight = 60000
+    },
+    [0] = { -- Compacts
+        slots = 30,
+        maxWeight = 38000
+    },
+    [1] = { -- Sedans
+        slots = 40,
+        maxWeight = 50000
+    },
+    [2] = { -- SUVs
+        slots = 50,
+        maxWeight = 75000
+    },
+    [3] = { -- Coupes
+        slots = 35,
+        maxWeight = 42000
+    },
+    [4] = { -- Muscle
+        slots = 30,
+        maxWeight = 38000
+    },
+    [5] = { -- Sports Classics
+        slots = 25,
+        maxWeight = 30000
+    },
+    [6] = { -- Sports
+        slots = 25,
+        maxWeight = 30000
+    },
+    [7] = { -- Super
+        slots = 25,
+        maxWeight = 30000
+    },
+    [8] = { -- Motorcycles
+        slots = 15,
+        maxWeight = 15000
+    },
+    [9] = { -- Off-road
+        slots = 35,
+        maxWeight = 60000
+    },
+    [12] = { -- Vans
+        slots = 35,
+        maxWeight = 120000
+    },
+    [13] = { -- Cycles
+        slots = 0,
+        maxWeight = 0
+    },
+    [14] = { -- Boats
+        slots = 50,
+        maxWeight = 120000
+    },
+    [15] = { -- Helicopters
+        slots = 50,
+        maxWeight = 120000
+    },
+    [16] = { -- Planes
+        slots = 50,
+        maxWeight = 120000
+    },
 }
 
 Config.AttachmentCraftingLocation = vector3(88.91, 3743.88, 40.77) -- Only needed if not using target

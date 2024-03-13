@@ -51,10 +51,10 @@
                 </div>
                 <div class="inv-options">
                   <div class="inv-options-list">
-                      <img class="brand-logo" src="./images/ps-symbol.svg"></img>
+                      <!-- <img class="brand-logo" src="./images/ps-symbol.svg"></img> -->
                       <input type="number" id="item-amount" class="inv-option-item" maxlength="4" min="0" placeholder="0" value="0" oninput="validity.valid||(value='');" onkeypress="isNumberKey(event)"></input>
 
-                      <div class="inv-option-item" id="inv-close"><p>Close</p></div> 
+                      <div class="inv-option-item" id="inv-close"><p>Close</p></div>
                       <!--optional-->
                       <div class="combine-option-container">
                           <div class="btn-combine CombineItem"><p>Combine</p></div>
@@ -88,10 +88,10 @@
             <div id="inventory-menus" style="min-height: 100vh;">
                 <div class="row">
                   <!-- Anyone really use this? -Ok1ez -->
-                  <div class="inv-help-options">
+                  <!-- <div class="inv-help-options">
                     <q-btn class="" color="button" @click="options = true"><i class="fas fa-gear"></i></q-btn>
                     <q-btn class="" color="button" @click="help = true"><i class="fas fa-question"></i></q-btn>
-                  </div>
+                  </div> -->
                   <q-dialog v-model="options">
                     <q-card>
                       <q-card-section>

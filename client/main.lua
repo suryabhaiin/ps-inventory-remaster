@@ -16,38 +16,6 @@ local WeaponAttachments = {}
 local showBlur = true
 local isOpen = false
 local flagvalue = math.random(111111, 99999999)
-local function HasItem(items, amount)
-    local isTable = type(items) == 'table'
-    local isArray = isTable and table.type(items) == 'array' or false
-    local totalItems = #items
-    local count = 0
-    local kvIndex = 2
-	if isTable and not isArray then
-        totalItems = 0
-        for _ in pairs(items) do totalItems += 1 end
-        kvIndex = 1
-    end
-    for _, itemData in pairs(PlayerData.items) do
-        if isTable then
-            for k, v in pairs(items) do
-                local itemKV = {k, v}
-                if itemData and itemData.name == itemKV[kvIndex] and ((amount and itemData.amount >= amount) or (not isArray and itemData.amount >= v) or (not amount and isArray)) then
-                    count += 1
-                end
-            end
-            if count == totalItems then
-                return true
-            end
-        else -- Single item as string
-            if itemData and itemData.name == items and (not amount or (itemData and amount and itemData.amount >= amount)) then
-                return true
-            end
-        end
-    end
-    return false
-end
-
-exports("HasItem", HasItem)
 
 RegisterNUICallback('showBlur', function()
     Wait(50)
@@ -398,10 +366,6 @@ RegisterNetEvent('inventory:client:CheckOpenState', function(type, id, label)
         if name ~= CurrentDrop or CurrentDrop == nil then
             TriggerServerEvent('inventory:server:SetIsOpenState', false, type, id)
         end
-    elseif type == "otherplayer" then
-        if name ~= currentOtherInventory or currentOtherInventory == nil then -- need to fix
-            TriggerServerEvent('inventory:server:SetIsOpenState', false, type, id)
-        end
     end
 end)
 
@@ -442,6 +406,7 @@ RegisterNetEvent('inventory:server:RobPlayer', function(TargetId)
 end)
 
 RegisterNetEvent('inventory:client:OpenInventory', function(PlayerAmmo, inventory, other)
+    if isOpen then return end
     if not IsEntityDead(PlayerPedId()) then
         if Config.Progressbar.Enable then
             QBCore.Functions.Progressbar('open_inventory', 'Opening Inventory...', math.random(Config.Progressbar.minT, Config.Progressbar.maxT), false, false, { -- Name | Label | Time | useWhileDead | canCancel
@@ -452,8 +417,9 @@ RegisterNetEvent('inventory:client:OpenInventory', function(PlayerAmmo, inventor
             }, {}, {}, {}, function() -- Play When Done
                 ToggleHotbar(false)
                 if showBlur == true then
-                    TriggerScreenblurFadeIn(1000)
+                    --TriggerScreenblurFadeIn(1000)
                 end
+                isOpen = true
                 SetNuiFocus(true, true)
                 if other then
                     currentOtherInventory = other.name
@@ -479,8 +445,9 @@ RegisterNetEvent('inventory:client:OpenInventory', function(PlayerAmmo, inventor
         else
             Wait(500)
             ToggleHotbar(false)
+            isOpen = true
             if showBlur == true then
-                TriggerScreenblurFadeIn(1000)
+                --TriggerScreenblurFadeIn(1000)
             end
             SetNuiFocus(true, true)
             if other then
@@ -687,18 +654,22 @@ RegisterNetEvent('inventory:client:RemoveDropItem', function(dropId)
     end
 end)
 
-RegisterNetEvent('inventory:client:DropItemAnim', function()
-    local ped = PlayerPedId()
+RegisterNetEvent('inventory:client:DropItemAnim', function(index)
     SendNUIMessage({
         action = "close",
     })
-    RequestAnimDict("pickup_object")
-    while not HasAnimDictLoaded("pickup_object") do
-        Wait(7)
-    end
-    TaskPlayAnim(ped, "pickup_object" ,"pickup_low" ,8.0, -8.0, -1, 1, 0, false, false, false )
-    Wait(2000)
-    ClearPedTasks(ped)
+    TriggerServerEvent("inventory:server:OpenInventory", "drop", index)
+    -- local ped = PlayerPedId()
+    -- SendNUIMessage({
+    --     action = "close",
+    -- })
+    -- RequestAnimDict("pickup_object")
+    -- while not HasAnimDictLoaded("pickup_object") do
+    --     Wait(7)
+    -- end
+    -- TaskPlayAnim(ped, "pickup_object" ,"pickup_low" ,8.0, -8.0, -1, 1, 0, false, false, false )
+    -- Wait(2000)
+    -- ClearPedTasks(ped)
 end)
 
 RegisterNetEvent('inventory:client:SetCurrentStash', function(stash)
@@ -713,12 +684,6 @@ RegisterNetEvent('inventory:client:craftTarget',function()
     TriggerServerEvent("inventory:server:OpenInventory", "crafting", math.random(1, 99), crafting)
 end)
 
--- Commands
-
-RegisterCommand('closeinv', function()
-    closeInventory()
-end, false)
-
 RegisterNetEvent("qb-inventory:client:closeinv", function()
     closeInventory()
 end)
@@ -728,7 +693,6 @@ function openInventory()
     if isOpen then return end
     if not isCrafting and not inInventory then
         if not PlayerData.metadata["isdead"] and not PlayerData.metadata["inlaststand"] and not PlayerData.metadata["ishandcuffed"] and not IsPauseMenuActive() then
-            isOpen = true
             local ped = PlayerPedId()
             local curVeh = nil
             local VendingMachine = nil
@@ -756,7 +720,6 @@ function openInventory()
                         else
                             QBCore.Functions.Notify("Vehicle locked.", "error")
                             CurrentVehicle = nil
-                            --return
                         end
                     else
                         CurrentVehicle = nil
@@ -768,61 +731,17 @@ function openInventory()
 
             if CurrentVehicle then -- Trunk
                 local vehicleClass = GetVehicleClass(curVeh)
-                local maxweight
-                local slots
-                if vehicleClass == 0 then
-                    maxweight = 38000
-                    slots = 30
-                elseif vehicleClass == 1 then
-                    maxweight = 50000
-                    slots = 40
-                elseif vehicleClass == 2 then
-                    maxweight = 75000
-                    slots = 50
-                elseif vehicleClass == 3 then
-                    maxweight = 42000
-                    slots = 35
-                elseif vehicleClass == 4 then
-                    maxweight = 38000
-                    slots = 30
-                elseif vehicleClass == 5 then
-                    maxweight = 30000
-                    slots = 25
-                elseif vehicleClass == 6 then
-                    maxweight = 30000
-                    slots = 25
-                elseif vehicleClass == 7 then
-                    maxweight = 30000
-                    slots = 25
-                elseif vehicleClass == 8 then
-                    maxweight = 15000
-                    slots = 15
-                elseif vehicleClass == 9 then
-                    maxweight = 60000
-                    slots = 35
-                elseif vehicleClass == 12 then
-                    maxweight = 120000
-                    slots = 35
-                elseif vehicleClass == 13 then
-                    maxweight = 0
-                    slots = 0
-                elseif vehicleClass == 14 then
-                    maxweight = 120000
-                    slots = 50
-                elseif vehicleClass == 15 then
-                    maxweight = 120000
-                    slots = 50
-                elseif vehicleClass == 16 then
-                    maxweight = 120000
-                    slots = 50
-                else
-                    maxweight = 60000
-                    slots = 35
-                end
+                local trunkConfig = Config.TrunkSpace[vehicleClass] or Config.TrunkSpace['default']
+                if not trunkConfig then return print('Cannot get the vehicle trunk config') end
+                local slots = trunkConfig.slots or 10
+                local maxweight = trunkConfig.maxWeight or 30000
+                if not slots or not maxweight then return print('Cannot get the vehicle slots and maxweight') end
+
                 local other = {
                     maxweight = maxweight,
                     slots = slots,
                 }
+
                 TriggerServerEvent("inventory:server:OpenInventory", "trunk", CurrentVehicle, other)
                 OpenTrunk()
             elseif CurrentGlovebox then
@@ -851,30 +770,48 @@ function openHotbar()
         ToggleHotbar(isHotbar)
     end
 end
+local keyHoldDuration = 0
 
 CreateThread(function()
     while true do
         Wait(0)
-        if IsControlJustPressed(0, 211) then
+        -- if IsControlPressed(0, 211) then --TAB
+        --     keyHoldDuration = keyHoldDuration + GetFrameTime()
+        --     if keyHoldDuration >= 0.5 and keyHoldDuration < 10 then
+        --         openInventory()
+        --         keyHoldDuration = 10
+        --     end
+        -- else
+        --     keyHoldDuration = 0
+        -- end
+        if IsControlJustPressed(0, 211) then --TAB
             openInventory()
         end
-        if IsControlJustPressed(0, 20) then
+        if IsControlJustPressed(0, 20) then --Z
             openHotbar()
+        end
+        if IsControlJustPressed(0, 57) then --F10
+            closeInventory()
         end
     end
 end)
 
 --RegisterKeyMapping('hotbar', 'Toggles keybind slots', 'keyboard', 'z')
-
+local slotused = {}
 for i = 1, 6 do
     RegisterCommand('slot' .. i,function()
+        if slotused[i] then return QBCore.Functions.Notify("Slot is busy", "error") end
         if not PlayerData.metadata["isdead"] and not PlayerData.metadata["inlaststand"] and not PlayerData.metadata["ishandcuffed"] and not IsPauseMenuActive() and not IsNuiFocused() and not LocalPlayer.state.inv_busy then
             if i == 6 then
                 i = Config.MaxInventorySlots
             end
             TriggerServerEvent("inventory:server:UseItemSlot", i)
+            slotused[i] = true
+            Wait(3000)
+            slotused[i] = nil
         end
     end, false)
+    TriggerEvent('chat:removeSuggestion', '/slot' .. i)
     RegisterKeyMapping('slot' .. i, 'Uses the item in slot ' .. i, 'keyboard', i)
 end
 
@@ -946,11 +883,11 @@ RegisterNUICallback("CloseInventory", function()
         CurrentStash = nil
         SetNuiFocus(false, false)
         inInventory = false
-        TriggerScreenblurFadeOut(1000)
+        --TriggerScreenblurFadeOut(1000)
         ClearPedTasks(PlayerPedId())
+        isOpen = false
+        LocalPlayer.state:set("inv_busy", false, true)
         return
-    else
-        currentOtherInventory = nil
     end
     if CurrentVehicle ~= nil then
         CloseTrunk()
@@ -967,7 +904,6 @@ RegisterNUICallback("CloseInventory", function()
         CurrentDrop = nil
     end
     Wait(50)
-    TriggerScreenblurFadeOut(1000)
     SetNuiFocus(false, false)
     inInventory = false
     Wait(100)
@@ -1137,45 +1073,84 @@ CreateThread(function()
     end	
 end)
 
+local function HasItem(items, amount)
+    local isTable = type(items) == 'table'
+    local isArray = isTable and table.type(items) == 'array' or false
+    local totalItems = #items
+    local count = 0
+    local kvIndex = 2
+    if isTable and not isArray then
+        totalItems = 0
+        for _ in pairs(items) do totalItems += 1 end
+        kvIndex = 1
+    end
+    for _, itemData in pairs(PlayerData.items) do
+        if isTable then
+            for k, v in pairs(items) do
+                local itemKV = { k, v }
+                if itemData and itemData.name == itemKV[kvIndex] and ((amount and itemData.amount >= amount) or (not isArray and itemData.amount >= v) or (not amount and isArray)) then
+                    count += 1
+                end
+            end
+            if count == totalItems then
+                return true
+            end
+        else -- Single item as string
+            if itemData and itemData.name == items and (not amount or (itemData and amount and itemData.amount >= amount)) then
+                return true
+            end
+        end
+    end
+    return false
+end
 
-    --qb-target
-    RegisterNetEvent("inventory:client:Crafting", function(dropId)
-        local crafting = {}
-        crafting.label = "Crafting"
-        crafting.items = GetThresholdItems()
-        TriggerServerEvent("inventory:server:OpenInventory", "crafting", math.random(1, 99), crafting)
-    end)
+exports('HasItem', HasItem)
+
+local function GetTrunkSize(vehicleClass)
+    local trunkSize = Config.TrunkSpace[vehicleClass] or Config.TrunkSpace['default']
+    return trunkSize[vehicleClass].maxweight, trunkSize[vehicleClass].slots
+end
+exports('GetTrunkSize', GetTrunkSize)
+
+    -- creafting
+    
+    -- RegisterNetEvent("inventory:client:Crafting", function(dropId)
+    --     local crafting = {}
+    --     crafting.label = "Crafting"
+    --     crafting.items = GetThresholdItems()
+    --     TriggerServerEvent("inventory:server:OpenInventory", "crafting", math.random(1, 99), crafting)
+    -- end)
     
     
-    RegisterNetEvent("inventory:client:WeaponAttachmentCrafting", function(dropId)
-        local crafting = {}
-        crafting.label = "Attachment Crafting"
-        crafting.items = GetAttachmentThresholdItems()
-        TriggerServerEvent("inventory:server:OpenInventory", "attachment_crafting", math.random(1, 99), crafting)
-    end)
+    -- RegisterNetEvent("inventory:client:WeaponAttachmentCrafting", function(dropId)
+    --     local crafting = {}
+    --     crafting.label = "Attachment Crafting"
+    --     crafting.items = GetAttachmentThresholdItems()
+    --     TriggerServerEvent("inventory:server:OpenInventory", "attachment_crafting", math.random(1, 99), crafting)
+    -- end)
     
-    local toolBoxModels = {
-        `prop_toolchest_05`,
-        `prop_tool_bench02_ld`,
-        `prop_tool_bench02`,
-        `prop_toolchest_02`,
-        `prop_toolchest_03`,
-        `prop_toolchest_03_l2`,
-        `prop_toolchest_05`,
-        `prop_toolchest_04`,
-    }
-    exports['qb-target']:AddTargetModel(toolBoxModels, {
-            options = {
-                {
-                    event = "inventory:client:WeaponAttachmentCrafting",
-                    icon = "fas fa-wrench",
-                    label = "Weapon Attachment Crafting", 
-                },
-                {
-                    event = "inventory:client:Crafting",
-                    icon = "fas fa-wrench",
-                    label = "Item Crafting", 
-                },
-            },
-        distance = 1.0
-    })
+    -- local toolBoxModels = {
+    --     `prop_toolchest_05`,
+    --     `prop_tool_bench02_ld`,
+    --     `prop_tool_bench02`,
+    --     `prop_toolchest_02`,
+    --     `prop_toolchest_03`,
+    --     `prop_toolchest_03_l2`,
+    --     `prop_toolchest_05`,
+    --     `prop_toolchest_04`,
+    -- }
+    -- exports['qb-target']:AddTargetModel(toolBoxModels, {
+    --         options = {
+    --             {
+    --                 event = "inventory:client:WeaponAttachmentCrafting",
+    --                 icon = "fas fa-wrench",
+    --                 label = "Weapon Attachment Crafting", 
+    --             },
+    --             {
+    --                 event = "inventory:client:Crafting",
+    --                 icon = "fas fa-wrench",
+    --                 label = "Item Crafting", 
+    --             },
+    --         },
+    --     distance = 1.0
+    -- })
